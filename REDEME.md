@@ -46,7 +46,6 @@ TASK_LIST=("ARC-c" "ARC-e" "BoolQ" "HellaSwag" "OBQA" "PIQA" "SIQA" "WinoGrande"
 for subtask in "${TASK_LIST[@]}"
 do
     echo "Process ${TASK} ${subtask}"
-    ### python 脚本
     python $PRJ_PATH/run_trainer.py \
     --task $TASK \
     --subtask $subtask \
