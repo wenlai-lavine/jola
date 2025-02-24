@@ -1,0 +1,34 @@
+model_config:
+  pretrained_model_name_or_path: "meta-llama/Llama-3.1-8B-Instruct"
+  device: "cuda"
+  cache_dir: "/dss/dssmcmlfs01/pn39je/pn39je-dss-0001/go52tox/.cache"
+  applied_module: 'attention'
+  base_model_name: 'llama3.1_8B_chat'
+
+training_config:
+  learning_rate: 0.005
+  lr_scheduler_type: 'cosine'
+  warmup_steps: 50
+  per_device_train_batch_size: 8
+  per_device_eval_batch_size: 8
+  num_train_epochs: 20
+  evaluation_strategy: 'epoch'
+  save_strategy: 'epoch'
+  load_best_model_at_end: True
+  save_total_limit: 1
+  report_to: "wandb"
+  logging_strategy: "epoch"
+  seed: 42
+  do_train: True
+  do_eval: True
+  bf16: False
+  output_dir: './output'
+
+data_config:
+  train_size: 200
+  task_name: "common_reason"
+  data_path: "/dss/dssmcmlfs01/pn39je/pn39je-dss-0001/go52tox/lavine_prj/paper_prj/rep_pruning/dataset/data_with_instruct/commonsense/ARC-c"
+
+jola_config:
+  gate_lambda: 0.00004
+  gate_scheduler: "expon"

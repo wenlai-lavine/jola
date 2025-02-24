@@ -752,7 +752,7 @@ class LlamaModel(LlamaPreTrainedModel):
         )
 
 
-class LlamaForCausalLM(LlamaPreTrainedModel):
+class JoLAModel(LlamaPreTrainedModel):
     _tied_weights_keys = ["lm_head.weight"]
     def __init__(self, config):
         super().__init__(config)
@@ -764,7 +764,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         self.post_init()
 
     @classmethod
-    def custom_from_pretrained(
+    def jola_from_pretrained(
         cls,
         pretrained_model_name_or_path,
         *model_args,
@@ -781,9 +781,37 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
         ### Set which modules and layers to apply LoFiT
         model.model.set_applied_modules_to_layers(applied_module,applied_layers)
         return model
+    
 
-
-
+    def unfreeze_jola_params(self):
+        ### First freeze all pretrained parameters
+        for param in self.model.parameters():
+            param.requires_grad = False
+        for i in range(self.model.config.num_hidden_layers):
+            attn_A = self.model.layers[i].self_attn.attn_A
+            for j,module in enumerate(attn_A):
+                module.requires_grad = True
+            attn_v = self.model.layers[i].self_attn.attn_v
+            for j,module in enumerate(attn_v):
+                module.requires_grad = True
+            g1 = self.model.layers[i].self_attn.log_g1
+            g1.requires_grad = True
+            g2 = self.model.layers[i].self_attn.log_g2
+            g2.requires_grad = True
+        
+        ## initialize jola parameters
+        for i in range(self.model.config.num_hidden_layers):
+            attn_A = self.model.layers[i].self_attn.attn_A
+            for j,module in enumerate(attn_A):
+                nn.init.normal_(module,mean=0,std=1e-3)
+            attn_v = self.model.layers[i].self_attn.attn_v
+            for j,module in enumerate(attn_v):
+                nn.init.normal_(module,mean=0,std=1e-3)
+            
+            g1 = self.model.layers[i].self_attn.log_g1
+            nn.init.xavier_uniform_(g1)
+            g2 = self.model.layers[i].self_attn.log_g2
+            nn.init.xavier_uniform_(g2)
         
 
     def get_input_embeddings(self):
@@ -967,10 +995,37 @@ class AutoForCausalLM(AutoModelForCausalLM):
         ### Set which modules and layers to apply LoFiT
         model.model.set_applied_modules_to_layers(applied_module,applied_layers)
         return model
-
-
-
+    
+    def unfreeze_jola_params(self):
+        ### First freeze all pretrained parameters
+        for param in self.model.parameters():
+            param.requires_grad = False
+        for i in range(self.model.config.num_hidden_layers):
+            attn_A = slef.model.model.layers[i].self_attn.attn_A
+            for j,module in enumerate(attn_A):
+                module.requires_grad = True
+            attn_v = model.model.layers[i].self_attn.attn_v
+            for j,module in enumerate(attn_v):
+                module.requires_grad = True
+            g1 = self.model.model.layers[i].self_attn.log_g1
+            g1.requires_grad = True
+            g2 = self.model.model.layers[i].self_attn.log_g2
+            g2.requires_grad = True
         
+        ## initialize jola parameters
+        for i in range(self.model.config.num_hidden_layers):
+            attn_A = self.model.model.layers[i].self_attn.attn_A
+            for j,module in enumerate(attn_A):
+                nn.init.normal_(module,mean=0,std=1e-3)
+            attn_v = self.model.model.layers[i].self_attn.attn_v
+            for j,module in enumerate(attn_v):
+                nn.init.normal_(module,mean=0,std=1e-3)
+            
+            g1 = self.model.model.layers[i].self_attn.log_g1
+            nn.init.xavier_uniform_(g1)
+            g2 = self.model.model.layers[i].self_attn.log_g2
+            nn.init.xavier_uniform_(g2)
+
 
     def get_input_embeddings(self):
         return self.model.embed_tokens

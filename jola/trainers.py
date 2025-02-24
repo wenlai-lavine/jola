@@ -1,9 +1,15 @@
 import os
 import math, torch
-from trl import SFTTrainer
-from utils.evaluate import evaluate_common_reason, evaluate_mmlu_pro, evaluate_gem
+from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
+# from utils.evaluate import evaluate_common_reason, evaluate_mmlu_pro, evaluate_gem
 
-## Define four schedule
+# define data collator for jola
+def make_data_collator(response_template="### Response:\n", tokenizer=None, mlm=False):
+    data_collator = DataCollatorForCompletionOnlyLM(response_template=response_template, tokenizer=tokenizer, mlm=mlm)
+    return data_collator
+
+
+# define four schedule
 class LinearSchedule:
     def __init__(self, start_lambda, end_lambda, total_steps):
         self.start_lambda = start_lambda
@@ -51,8 +57,8 @@ class ExponentialDecaySchedule:
         return self.start_lambda * math.exp(-self.decay_rate * self.step_count)
 
 
-class CustomSFT_Trainer(SFTTrainer):
-    def __init__(self, model, train_dataset, eval_dataset, dataset_text_field, tokenizer, max_seq_length, data_collator, args, peft_config, callbacks, gate_scheduler):
+class JoLATrainer(SFTTrainer):
+    def __init__(self, model, train_dataset, eval_dataset, tokenizer, data_collator, args, callbacks, gate_scheduler, dataset_text_field="text", max_seq_length=400, peft_config=None):
         if callbacks:
             super().__init__(
                 model=model,
@@ -166,26 +172,26 @@ class CustomSFT_Trainer(SFTTrainer):
         else:
             return loss
     
-    def test(self, fname, task, subtask, eval_dataset=None, model_name=None):
-        self.model.eval()
-        self.args.prediction_loss_only = False
-        self.tokenizer.add_eos_token = False
-        if not os.path.exists(fname):
-            os.makedirs(fname)
-        if task == "commonsense":
-            evaluate_common_reason(eval_dataset=eval_dataset, task=task, subtask=subtask, model_name=model_name, model=self.model, tokenizer=self.tokenizer, fname=fname)
-        elif task == "mmlu_pro":
-            evaluate_mmlu_pro(eval_dataset=eval_dataset, task=task, subtask=subtask, model_name=model_name, model=self.model, tokenizer=self.tokenizer, fname=fname)
-        elif task == "gem":
-            evaluate_gem(eval_dataset=eval_dataset, task=task, subtask=subtask, model_name=model_name, model=self.model, tokenizer=self.tokenizer, fname=fname)
-        else:
-            print("new")
+    # def test(self, fname, task, subtask, eval_dataset=None, model_name=None):
+    #     self.model.eval()
+    #     self.args.prediction_loss_only = False
+    #     self.tokenizer.add_eos_token = False
+    #     if not os.path.exists(fname):
+    #         os.makedirs(fname)
+    #     if task == "commonsense":
+    #         evaluate_common_reason(eval_dataset=eval_dataset, task=task, subtask=subtask, model_name=model_name, model=self.model, tokenizer=self.tokenizer, fname=fname)
+    #     elif task == "mmlu_pro":
+    #         evaluate_mmlu_pro(eval_dataset=eval_dataset, task=task, subtask=subtask, model_name=model_name, model=self.model, tokenizer=self.tokenizer, fname=fname)
+    #     elif task == "gem":
+    #         evaluate_gem(eval_dataset=eval_dataset, task=task, subtask=subtask, model_name=model_name, model=self.model, tokenizer=self.tokenizer, fname=fname)
+    #     else:
+    #         print("new")
         
         ## probability record during training
-        os.makedirs(f"{fname}/{task}/{model_name.split('/')[-1]}", exist_ok=True)
-        with open(os.path.join(fname, task, model_name.split('/')[-1], f"{subtask}_g1.txt"), "w", encoding="utf-8") as file_g1:
-            for row in self.g1_prop:
-                file_g1.write('\t'.join(map(str, row)) + '\n')
-        with open(os.path.join(fname, task, model_name.split('/')[-1], f"{subtask}_g2.txt"), "w", encoding="utf-8") as file_g2:
-            for row in self.g2_prop:
-                file_g2.write('\t'.join(map(str, row)) + '\n')
+        # os.makedirs(f"{fname}/{task}/{model_name.split('/')[-1]}", exist_ok=True)
+        # with open(os.path.join(fname, task, model_name.split('/')[-1], f"{subtask}_g1.txt"), "w", encoding="utf-8") as file_g1:
+        #     for row in self.g1_prop:
+        #         file_g1.write('\t'.join(map(str, row)) + '\n')
+        # with open(os.path.join(fname, task, model_name.split('/')[-1], f"{subtask}_g2.txt"), "w", encoding="utf-8") as file_g2:
+        #     for row in self.g2_prop:
+        #         file_g2.write('\t'.join(map(str, row)) + '\n')

@@ -12,7 +12,7 @@ $^1$ Technical University of Munich, $^2$ Munich Center for Machine Learning, $^
 Email: wen.lai@tum.de
 
 ## Overview
-![JoLA](../images/framework.png)
+![JoLA](./images/framework.png)
 > Parameter-efficient fine-tuning (PEFT) methods, such as LoRA, are commonly used to adapt LLMs. However, their effectiveness is often limited in low-resource scenarios with only a few hundred examples. Recent advances in interpretability research have inspired the emergence of activation editing techniques, which modify the activations of specific model components. These methods, due to their extremely small parameter counts, show promise for small datasets. However, their performance is highly dependent on identifying the correct modules to edit and often lacks stability across different datasets. In this paper, we propose Joint Localization and Activation Editing (JoLA), a method that jointly learns (1) which heads in the Transformer to edit; (2) whether the intervention should be additive, multiplicative, or both and (3) the intervention parameters themselves - vectors applied as additive offsets or multiplicative scalings to the head output. Through evaluations on three benchmarks spanning commonsense reasoning, natural language understanding, and natural language generation, we demonstrate that JoLA consistently outperforms existing methods.
 
 ## Installation
@@ -28,26 +28,22 @@ pip install git+https://github.com/wenlai-lavine/jola.git
 ## Training JoLA with a few codes
 ```py
 from jola import JoLAConfig, JoLAModel, JoLATrainer, data_from_list
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, TrainingArguments
 
-prompt_template = f"""Below is an instruction that describes a task. Write a response that appropriately completes the request.\n ### Instruction:\n{instruction}\n\n### Response:\n"""
 # set default=False, if you want to specify the parameters in JoLA; you need to set the configuration by providing a yaml file (example: config.yaml).
 jola_config = JoLAConfig(default=True)
 
-jola_model = JoLAModel.jola_from_pretrained(
-    jola_config.model_name_or_path,
-    device_map=jola_config.device, 
-    cache_dir=jola_config.cache_dir,
-    applied_module = jola_config.applied_module,
-    torch_dtype=jola_config.torch_dtype
-)
-jola_tokenizer = AutoTokenizer.from_pretrained(
-    jola_config.model_name_or_path,
-    cache_dir=jola_config.cache_dir
-)
+# load tokenizer
+jola_tokenizer = AutoTokenizer.from_pretrained(**jola_config["model_config"])
+
+# Load models
+jola_model = JoLAModel.jola_from_pretrained(**jola_config["model_config"])
 
 # unfreeze jola parameters
 jola_model.unfreeze_jola_params()
+
+# set in training mode
+jola_model.model.train()
 
 # examples from ARC-e
 training_examples = [
@@ -56,17 +52,27 @@ training_examples = [
     ... ...
 ]
 
-data_module = data_from_list(
-    jola_tokenizer, jola_model, [prompt_template % e[0] for e in training_examples], 
-    [e[1] for e in training_examples])
+# data setting, data loader
+data_collator = make_data_collator(tokenizer=jola_tokenizer)
 
-trainer = JoLATrainer(
+# dataset setting
+jola_dataset = JoLADataset(train_list=training_examples)
+jola_data = jola_dataset.data_from_list()
+# training arguments
+training_args = TrainingArguments(**jola_config["training_config"])
+# trainer
+jola_trainer = JoLATrainer(
     jola_model,
+    train_dataset=jola_data['train'],
+    eval_dataset = jola_data['valid'],
     tokenizer=jola_tokenizer,
-    args=jola_config.training_args,
-    **data_module
+    data_collator = data_collator,
+    args=training_args,
+    callbacks=[early_stopping_callback],
+    gate_scheduler=jola_config["jola_config"]["gate_scheduler"]
 )
-trainer.train()
+
+jola_trainer.train()
 ```
 
 
@@ -89,7 +95,8 @@ We evaluate on commonsense reasoning, natural language understanding and natural
     - Prompt Template from [PromptSource](https://github.com/bigscience-workshop/promptsource)
 
 #### Training and Evaluation
-+ ```python examples/[task]/run_jola.py```
++ please use your own ```config.yaml```
++ ```python examples/run_jola.py```
 
 ## Citation
 
