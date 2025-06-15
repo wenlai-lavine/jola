@@ -1,0 +1,22 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Environments
+venv/
+env/
+.env
+
+# VSCode config
+.vscode/
+
+# python builder
+build/
+dist/
+*.egg-info/
+
+# log
+*.log
+
+# Jupyter notebook checkpoint
+.ipynb_checkpoints/
